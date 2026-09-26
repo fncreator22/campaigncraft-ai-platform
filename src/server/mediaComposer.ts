@@ -51,7 +51,7 @@ export interface ComposeMediaResult {
 /**
  * Extracts raw buffer and mime type from data URL or raw base64 string
  */
-function parseDataPayload(dataOrUrl: string, defaultMime = 'video/mp4'): { buffer: Buffer; mimeType: string } {
+export function parseDataPayload(dataOrUrl: string, defaultMime = 'video/mp4'): { buffer: Buffer; mimeType: string } {
   if (!dataOrUrl || typeof dataOrUrl !== 'string') {
     throw new Error('Invalid empty media payload supplied for processing.');
   }
@@ -73,44 +73,65 @@ function parseDataPayload(dataOrUrl: string, defaultMime = 'video/mp4'): { buffe
  * Helper to run a command using spawn and capture complete stdout & stderr.
  * In case of failure, complete stderr is included in the Error message.
  */
-function execProcess(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+export function execProcess(
+  cmd: string,
+  args: string[],
+  logErrors = true
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const proc = spawn(cmd, args);
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
     proc.on('close', (code) => {
+      if (settled) return;
+      settled = true;
       if (code === 0) {
         resolve({ stdout, stderr, exitCode: code });
       } else {
         const errorDetails = `FFmpeg command failed: [${cmd} ${args.join(' ')}]\nExit Code: ${code}\nStderr:\n${stderr.trim()}`;
-        console.error(`[mediaComposer] ${errorDetails}`);
+        if (logErrors) {
+          console.error(`[mediaComposer] ${errorDetails}`);
+        }
         reject(new Error(errorDetails));
       }
     });
 
     proc.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      if (logErrors) {
+        console.error(`[mediaComposer] Failed to launch ${cmd}: ${err.message}`);
+      }
       reject(new Error(`Failed to launch ${cmd}: ${err.message}`));
     });
   });
 }
 
+let ffmpegAvailableCache: boolean | null = null;
+
 /**
  * Checks whether FFmpeg and FFprobe are accessible on the host PATH
  */
-export async function isFfmpegAvailable(): Promise<boolean> {
+export async function isFfmpegAvailable(forceRefresh = false): Promise<boolean> {
+  if (ffmpegAvailableCache !== null && !forceRefresh) {
+    return ffmpegAvailableCache;
+  }
   try {
-    await execProcess('ffmpeg', ['-version']);
+    await execProcess('ffmpeg', ['-version'], false);
+    ffmpegAvailableCache = true;
     return true;
   } catch {
+    ffmpegAvailableCache = false;
     return false;
   }
 }
@@ -453,9 +474,23 @@ export async function composeFinalMedia(params: {
 }): Promise<ComposeMediaResult> {
   const hasFfmpeg = await isFfmpegAvailable();
   if (!hasFfmpeg) {
-    throw new Error(
-      'FFmpeg and FFprobe binaries were not found on the system PATH. FFmpeg is required for multi-layer audio mixing, loudness normalization, and final MP4 muxing. Please install FFmpeg (e.g., winget install Gyan.FFmpeg on Windows or sudo apt install ffmpeg on Linux).'
-    );
+    console.warn('[mediaComposer] FFmpeg and FFprobe binaries not found on system PATH. Returning unmixed media assets with fallback composition notice.');
+    const finalDuration = Number((params.targetDuration || 10.0).toFixed(1));
+    return {
+      finalVideoUrl: params.silentVideoUrl || params.rawVideoUrl || '',
+      silentVideoUrl: params.silentVideoUrl,
+      normalizedAudioUrl: params.normalizedAudioUrl,
+      videoDuration: finalDuration,
+      originalAudioDuration: finalDuration,
+      finalDuration,
+      synchronized: false,
+      activeLayers: ['Silent Video Master', 'Normalized Soundtrack (Unmixed - FFmpeg not installed on host)'],
+      compositionLog: [
+        'Notice: FFmpeg and FFprobe binaries were not found on the system PATH.',
+        'Audio mixing and MP4 container muxing bypassed. Direct video and soundtrack assets are preserved for playback.',
+        'To enable 3-layer environmental audio mixing, loudness normalization, and MP4 muxing, install FFmpeg.',
+      ],
+    };
   }
 
   const log: string[] = [];
