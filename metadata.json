@@ -1,0 +1,7 @@
+{
+  "name": "CampaignCraft AI Platform",
+  "description": "Multimodal AI creative campaign generator and post-production studio powered by Gemini 3.8 Flash, Nano Banana 2 Lite, Gemini Omni 1.1 Flash, and Lyria 3.5.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
