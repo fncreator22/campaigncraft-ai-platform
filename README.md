@@ -308,9 +308,10 @@ NODE_ENV=development
    # Edit .env and paste your GEMINI_API_KEY
    ```
 
-4. **Verify Build & Types:**
+4. **Verify Build, Types & Tests:**
    ```bash
    npm run lint    # Verifies TypeScript types with zero errors
+   npm test        # Runs unit tests for diagnostics, soundSynth, mediaComposer & state
    npm run build   # Compiles client production assets into dist/
    ```
 
@@ -350,9 +351,9 @@ NODE_ENV=development
 
 ## Troubleshooting & Known Considerations
 
-1. **Missing FFmpeg on Host:**
-   - *Symptom:* Calling `/api/campaign/compose-media` returns `[FFMPEG_ERROR] FFmpeg and FFprobe binaries were not found on the system PATH`.
-   - *Fix:* Install FFmpeg and verify by running `ffmpeg -version` in your terminal. Video and soundtrack endpoints contain safe fallbacks that preserve raw media assets even if FFmpeg is missing.
+1. **Host Without FFmpeg:**
+   - *Behavior:* Video probing, soundtrack normalization, and final media composition gracefully fall back to native assets without crashing or logging error spam.
+   - *Full Capabilities:* To enable native 3-track audio mixing, rain/ambience synthesis, and fast-start MP4 muxing, install FFmpeg (`winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, or `apt install ffmpeg` on Linux).
 2. **Model Availability & Access:**
    - `gemini-omni-1.1-flash` and `lyria-3-clip-preview` are specialized multimodal models. Ensure your Google AI Studio project or API key has access to these preview endpoints.
    - If Lyria is unavailable, CampaignCraft AI automatically falls back to its built-in procedural audio synthesizer (`soundSynth.ts`).

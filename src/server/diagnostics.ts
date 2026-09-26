@@ -36,13 +36,14 @@ export function sanitizeAndCategorizeError(
   // Redact any Google API keys, secrets, tokens, or passwords
   const sanitized = rawMsg
     .replace(/AIza[0-9A-Za-z-_]{35}/g, '[REDACTED_API_KEY]')
-    .replace(/(?:key|token|secret|password)=([^\s&]+)/gi, '$1=[REDACTED]');
+    .replace(/((?:api_?key|key|token|secret|password)=)[^\s&]+/gi, '$1[REDACTED]');
 
   let category: ErrorCategory = defaultCategory;
   const lower = sanitized.toLowerCase();
 
   if (
     lower.includes('api_key') ||
+    lower.includes('apikey') ||
     lower.includes('api key') ||
     lower.includes('not configured') ||
     lower.includes('unauthorized') ||

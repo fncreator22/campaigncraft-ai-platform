@@ -225,7 +225,7 @@ app.post('/api/campaign/compose-media', async (req, res) => {
 
 // Setup Vite middleware in dev or static files in production
 async function startServer() {
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
